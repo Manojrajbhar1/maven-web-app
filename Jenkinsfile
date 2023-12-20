@@ -17,17 +17,31 @@ pipeline {
             steps {
                 script {
                     def mavenHome = tool name: 'maven 3.9.6', type: 'maven'
-                    // Use the tool installation directory directly, no need for '/var/jenkins_home/apache-maven-3.6.3'
                     def mavenCMD = "${mavenHome}/bin/mvn"
                     sh "${mavenCMD} clean package"
                 }
             }
         }
-        stage('artifacts-nexus') {
-    	nexusArtifactUploader artifacts: [[artifactId: 'maven-web-app', classifier: '', file: 'target/maven-web-app.war', type: 'war']], credentialsId: 'nexus_creds', groupId: 'sreegroup', nexusUrl: 'localhost:8081', nexusVersion: 'nexus3', protocol: 'http', repository: 'sree-snapshot-Repo', version: '1.0-SNAPSHOT'
-	}
 
-     }
+        stage('Publish to Nexus') {
+            steps {
+                script {
+                    nexusArtifactUploader(
+                        artifacts: [
+                            [artifactId: 'maven-web-app', classifier: '', file: 'target/maven-web-app.war', type: 'war']
+                        ],
+                        credentialsId: 'nexus_creds',
+                        groupId: 'sreegroup',
+                        nexusUrl: 'localhost:8081',
+                        nexusVersion: 'nexus3',
+                        protocol: 'http',
+                        repository: 'sree-snapshot-Repo',
+                        version: '1.0-SNAPSHOT'
+                    )
+                }
+            }
+        }
+
         stage('Docker Build') {
             steps {
                 echo 'Building Docker Image'
@@ -59,11 +73,8 @@ pipeline {
                 sh "docker pull $NEXUS_DOCKER_REPO/maven-web-app:${BUILD_NUMBER}"
 
                 echo 'Running Docker Container'
-                sh "docker run -d -p 8092:8080 --name manoj-web-app $NEXUS_DOCKER_REPO/maven-web-app:${BUILD_NUMBER}"
+                sh "docker run -d -p 80:8080 --name new-app $NEXUS_DOCKER_REPO/maven-web-app:${BUILD_NUMBER}"
             }
         }
     }
 }
-
-    
-  
