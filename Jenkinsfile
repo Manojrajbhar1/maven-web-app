@@ -1,54 +1,69 @@
-node{
-    
-    stage('Clone repo'){
-        git credentialsId: 'GIT-Credentials', url: 'https://github.com/ashokitschool/maven-web-app.git'
+pipeline {
+    agent any
+
+    environment {
+        NEXUS_CREDS = credentials('nexus_creds')
+        NEXUS_DOCKER_REPO = 'localhost:8082'
     }
-    
-    stage('Maven Build'){
-        def mavenHome = tool name: "Maven-3.8.6", type: "maven"
-        def mavenCMD = "${mavenHome}/bin/mvn"
-        sh "${mavenCMD} clean package"
-    }
-    
-    stage('SonarQube analysis') {       
-        withSonarQubeEnv('Sonar-Server-7.8') {
-       	sh "mvn sonar:sonar"    	
-    }
-        
-    stage('upload war to nexus'){
-	steps{
-		nexusArtifactUploader artifacts: [	
-			[
-				artifactId: '01-maven-web-app',
-				classifier: '',
-				file: 'target/01-maven-web-app.war',
-				type: war		
-			]	
-		],
-		credentialsId: 'nexus3',
-		groupId: 'in.ashokit',
-		nexusUrl: '',
-		protocol: 'http',
-		repository: 'ashokit-release'
-		version: '1.0.0'
-	}
-}
-    
-    stage('Build Image'){
-        sh 'docker build -t ashokit/mavenwebapp .'
-    }
-    
-    stage('Push Image'){
-        withCredentials([string(credentialsId: 'DOCKER-CREDENTIALS', variable: 'DOCKER_CREDENTIALS')]) {
-            sh 'docker login -u ashokit -p ${DOCKER_CREDENTIALS}'
+
+    stages {
+        stage('Clone Repository') {
+            steps {
+                git 'https://github.com/Manojrajbhar1/maven-web-app.git'
+            }
         }
-        sh 'docker push ashokit/mavenwebapp'
+
+        stage('Maven Build') {
+            steps {
+                script {
+                    def mavenHome = tool name: 'maven 3.9.6', type: 'maven'
+                    // Use the tool installation directory directly, no need for '/var/jenkins_home/apache-maven-3.6.3'
+                    def mavenCMD = "${mavenHome}/bin/mvn"
+                    sh "${mavenCMD} clean package"
+                }
+            }
+        }
+        stage('artifacts-nexus') {
+    	nexusArtifactUploader artifacts: [[artifactId: 'maven-web-app', classifier: '', file: 'target/maven-web-app.war', type: 'war']], credentialsId: 'nexus_creds', groupId: 'sreegroup', nexusUrl: 'localhost:8081', nexusVersion: 'nexus3', protocol: 'http', repository: 'sree-snapshot-Repo', version: '1.0-SNAPSHOT'
+	}
+
+     }
+        stage('Docker Build') {
+            steps {
+                echo 'Building Docker Image'
+                sh "docker build -t $NEXUS_DOCKER_REPO/maven-web-app:${BUILD_NUMBER} ."
+            }
+        }
+
+        stage('Docker Login') {
+            steps {
+                echo 'Nexus Docker Repository Login'
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'nexus_creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                        sh "echo $PASS | docker login -u $USER --password-stdin $NEXUS_DOCKER_REPO"
+                    }
+                }
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                echo 'Pushing Image to Docker Repository'
+                sh "docker push $NEXUS_DOCKER_REPO/maven-web-app:${BUILD_NUMBER}"
+            }
+        }
+
+        stage('Docker Pull and Run') {
+            steps {
+                echo 'Pulling Image from Docker Repository'
+                sh "docker pull $NEXUS_DOCKER_REPO/maven-web-app:${BUILD_NUMBER}"
+
+                echo 'Running Docker Container'
+                sh "docker run -d -p 8092:8080 --name manoj-web-app $NEXUS_DOCKER_REPO/maven-web-app:${BUILD_NUMBER}"
+            }
+        }
     }
-    
-    stage('Deploy App'){
-        kubernetesDeploy(
-            configs: 'maven-web-app-deploy.yml',
-            kubeconfigId: 'Kube-Config'
-        )
-    }    
 }
+
+    
+  
