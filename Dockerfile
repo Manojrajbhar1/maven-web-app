@@ -7,9 +7,9 @@ RUN apt-get update && apt install -y openjdk-11-jdk
 ENV JAVA_HOME /usr/lib/jvm/java-11-openjdk-amd64
 #ENV JRE_HOME /usr/lib/jvm/java-11-openjdk-amd64/jre
 RUN wget https://dlcdn.apache.org/tomcat/tomcat-9/v9.0.87/bin/apache-tomcat-9.0.87.zip \
-    && unzip apache-tomcat-9.0.84.zip \
-    && mv apache-tomcat-9.0.84 /usr/local/tomcat \
-    && rm apache-tomcat-9.0.84.zip \
+    && unzip apache-tomcat-9.0.87.zip \
+    && mv apache-tomcat-9.0.87 /usr/local/tomcat \
+    && rm apache-tomcat-9.0.87.zip \
     && chmod +x -R /usr/local/tomcat/bin/*.sh
 
 EXPOSE 8080
